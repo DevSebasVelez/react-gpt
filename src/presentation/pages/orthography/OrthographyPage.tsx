@@ -1,9 +1,15 @@
 import { useState } from 'react';
-import { TextMessageBox, GptMessage, MyMessage, TypingLoader, TextMessageBoxFile, TextMessageBoxSelect } from '../../components';
+import { TextMessageBox, MyMessage, TypingLoader, GptOrthographyMessage, GptMessage } from '../../components';
+import { orthographyUseCase } from '../../../core/use-cases';
 
 interface Message {
   text: string;
   isGpt: boolean;
+  info?: {
+    userScore: number;
+    errors: string[];
+    message: string;
+  };
 }
 
 export const OrthographyPage = () => {
@@ -12,11 +18,29 @@ export const OrthographyPage = () => {
   const [messages, setMessages] = useState<Message[]>([]);
 
 
-  const handlePost = async(text: string) => {
+  const handlePost = async( text: string ) => {
+
     setIsLoading(true);
     setMessages( (prev) => [...prev, {text: text, isGpt: false}] )
 
-    //TODO: UseCase
+
+    const data = await orthographyUseCase( text );
+
+    if( !data.ok ){
+      setMessages( (prev) => [...prev, {text: 'Error en correcciones', isGpt: true}] );
+
+    } else {
+      setMessages( (prev) => [...prev, {
+        text: data.message,
+        isGpt: true,
+        info: {
+          errors: data.errors,
+          message: data.message,
+          userScore: data.userScore,
+        }}] );
+    }
+
+
     setIsLoading(false);
   }
 
@@ -31,7 +55,14 @@ export const OrthographyPage = () => {
             {
               messages.map( (message, index) => (
                 message.isGpt
-                  ? (<GptMessage key={index} text='Esto viene de OpenAI' />)
+                  ? (
+                      <GptOrthographyMessage
+                        key={index}
+                        userScore={message.info!.userScore}
+                        message={message.info!.message}
+                        errors={message.info!.errors}
+                        />
+                      )
                   : (<MyMessage key={index} text={ message.text }/>)
 
               ))
@@ -48,21 +79,10 @@ export const OrthographyPage = () => {
         </div>
       </div>
 
-      {/* <TextMessageBox
+      <TextMessageBox
         onSendMessage={handlePost}
         placeholder='Consultar a ReactGPT'
         disableCorrections
-      /> */}
-      {/* <TextMessageBoxFile
-        onSendMessage={handlePost}
-        placeholder='Consultar a ReactGPT'
-        disableCorrections
-      /> */}
-      <TextMessageBoxSelect
-        onSendMessage={handlePost}
-        placeholder='Consultar a ReactGPT'
-        disableCorrections
-        options={[{id: '1', text: 'Hola'}, {id: '2', text: 'Hola2'}]}
       />
     </div>
   )
